@@ -1,4 +1,7 @@
 #include <Arduino.h>
+
+#define ESP32_WIFI_RELAY
+
 #include "ESPWirelessRelay.h"
 
 void setup() {
@@ -8,7 +11,7 @@ void setup() {
   const char* password = "123456789";
   const char* hostName = "testrelay.check";
 
-  ESPWirelessRelay relay(ssid, password, hostName, 5);
+  ESP32WifiRelay relay(ssid, password, hostName, 5);
 
   relay.begin();
   

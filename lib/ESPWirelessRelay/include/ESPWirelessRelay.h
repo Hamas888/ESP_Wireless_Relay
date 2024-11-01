@@ -27,12 +27,11 @@
 
 
 /* Includes */
-#include <Arduino.h>
+#ifdef ESP32_WIFI_RELAY
+#include "ESP32WifiRelay.h"
+#endif
 
-#ifdef ESP32_RELAY
-#include <WiFi.h>
-#include <ESPmDNS.h>
-#include <WebServer.h>
+#ifdef ESP32_ESPNOW_RELAY
 #endif
 
 #ifdef ESP8226_RELAY
@@ -41,19 +40,19 @@
 #endif
 
 
-class ESPWirelessRelay {
-private:
-    const char*  mSSID;
-    const char*  mPassword;
-    const char*  mHostname;
-    int          mRelayPin;
-    TaskHandle_t mWebServerTask;
+// class ESPWirelessRelay {
+// private:
+//     const char*  mSSID;
+//     const char*  mPassword;
+//     const char*  mHostname;
+//     int          mRelayPin;
+//     TaskHandle_t mWebServerTask;
 
-public:
-    ESPWirelessRelay(const char* ssid, const char* password, const char* hostname, int relayPin);
-    ~ESPWirelessRelay();
-    void begin();
-    static void webServerTask(void *param);
-};
+// public:
+//     ESPWirelessRelay(const char* ssid, const char* password, const char* hostname, int relayPin);
+//     ~ESPWirelessRelay();
+//     void begin();
+//     static void webServerTask(void *param);
+// };
 
 #endif // ESPWIRELESSRELAY_H
