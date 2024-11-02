@@ -11,7 +11,7 @@ void setup() {
   const char* password = "123456789";
   const char* hostName = "testrelay.check";
 
-  ESP32WifiRelay relay(ssid, password, hostName, 5);
+  ESP32WifiRelay relay(ssid, password, hostName, 23);
 
   relay.begin();
   

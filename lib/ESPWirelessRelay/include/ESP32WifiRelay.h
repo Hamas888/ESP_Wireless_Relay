@@ -43,7 +43,7 @@ public:
     ESP32WifiRelay(const char* ssid, const char* password, const char* hostname, int relayPin);
     ~ESP32WifiRelay();
     void begin();
-    static void webServerTask(void *param);
+    void webServerTask(void *param);
 };
 
 

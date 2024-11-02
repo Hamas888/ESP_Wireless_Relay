@@ -40,18 +40,20 @@ void ESP32WifiRelay::begin() {
 void ESP32WifiRelay::webServerTask(void *param) {
     ESP32WifiRelay* self = static_cast<ESP32WifiRelay*>(param);
     static WebServer server(80);
+    int relayPin = self->mRelayPin;                                                              // Capture the relay pin directly
+    Serial.println(self->mRelayPin);
 
     server.on("/", HTTP_GET, []() {                                                             
         server.send(200, "text/plain", "espRelay1 check: ok");
     });
 
-    server.on("/control", HTTP_GET, [self](){                                                       // Capture 'self' to access member variables
+    server.on("/control", HTTP_GET, [relayPin]() {                                               // Capture relayPin directly
         if (server.hasArg("state")) {
             String state = server.arg("state");
             if (state == "high") {
-                digitalWrite(self->mRelayPin, HIGH);
+                digitalWrite(relayPin, HIGH);
             } else if (state == "low") {
-                digitalWrite(self->mRelayPin, LOW);
+                digitalWrite(relayPin, LOW);
             }
             server.send(200, "text/plain", "OK");
         } else {
@@ -59,9 +61,9 @@ void ESP32WifiRelay::webServerTask(void *param) {
         }
     });
 
-    server.begin();                                                                             
+    server.begin();
 
-    while(true) {
+    while (true) {
         server.handleClient();
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
