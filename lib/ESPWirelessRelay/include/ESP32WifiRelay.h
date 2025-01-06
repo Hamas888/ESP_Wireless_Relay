@@ -30,21 +30,24 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 
-
 class ESP32WifiRelay {
-private:
-    const char*  mSSID;
-    const char*  mPassword;
-    const char*  mHostname;
-    int          mRelayPin;
-    TaskHandle_t mWebServerTask;
-
 public:
     ESP32WifiRelay(const char* ssid, const char* password, const char* hostname, int relayPin);
     ~ESP32WifiRelay();
-    void begin();
-    void webServerTask(void *param);
-};
 
+    void begin();
+    static void webServerTask(void* param);
+
+private:
+    int                 mRelayPin;
+    const char*         mSSID;
+    const char*         mPassword;
+    const char*         mHostname;
+    WebServer*          mServer;
+    TaskHandle_t        mWebServerTask;
+    
+    static void handleRoot(void* instance);
+    static void handleControl(void* instance);
+};
 
 #endif // ESP32WIFIRELAY_H

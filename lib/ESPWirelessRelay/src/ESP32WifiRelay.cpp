@@ -1,70 +1,93 @@
 #include "ESP32WifiRelay.h"
 
-
-ESP32WifiRelay::ESP32WifiRelay(const char* ssid, const char* password, const char* hostname, int relayPin) 
-: mSSID(ssid), mPassword(password), mHostname(hostname), mRelayPin(relayPin) {
+ESP32WifiRelay::ESP32WifiRelay(const char* ssid, const char* password, const char* hostname, int relayPin)
+    : mSSID(ssid), mPassword(password), mHostname(hostname), mRelayPin(relayPin), mServer(nullptr), mWebServerTask(nullptr) {
 }
 
 ESP32WifiRelay::~ESP32WifiRelay() {
-
+    if (mWebServerTask) {
+        vTaskDelete(mWebServerTask);
+        mWebServerTask = nullptr;
+    }
+    if (mServer) {
+        mServer->stop();
+        delete mServer;
+        mServer = nullptr;
+    }
 }
 
+void ESP32WifiRelay::handleRoot(void* instance) {
+    ESP32WifiRelay* self = static_cast<ESP32WifiRelay*>(instance);
+    self->mServer->send(200, "text/plain", "[ESPWifiRelay]: ok");
+}
+
+void ESP32WifiRelay::handleControl(void* instance) {
+    ESP32WifiRelay* self = static_cast<ESP32WifiRelay*>(instance);
+    
+    if (self->mServer->hasArg("state")) {
+        String state = self->mServer->arg("state");
+        if (state == "high") {
+            digitalWrite(self->mRelayPin, HIGH);
+            self->mServer->send(200, "text/plain", "[ESPWifiRelay]: Relay ON");
+        } else if (state == "low") {
+            digitalWrite(self->mRelayPin, LOW);
+            self->mServer->send(200, "text/plain", "[ESPWifiRelay]: Relay OFF");
+        } else {
+            self->mServer->send(400, "text/plain", "[ESPWifiRelay]: Invalid state value");
+        }
+    } else {
+        self->mServer->send(400, "text/plain", "[ESPWifiRelay]: Bad Request -> 'state' parameter missing");
+    }
+}
 
 void ESP32WifiRelay::begin() {
+    if (mRelayPin < 0 || mRelayPin > 48 || 
+        (mRelayPin >= 22 && mRelayPin <= 25) ||                                     // Reserved for SPI flash
+        (mRelayPin >= 26 && mRelayPin <= 32)) {                                     // Reserved for PSRAM
+        Serial.println("[ESPWifiRelay]: Invalid relay pin number!");
+        return;
+    }
+
     pinMode(mRelayPin, OUTPUT);
     digitalWrite(mRelayPin, LOW);
 
-    WiFi.softAP(mSSID, mPassword, true);                                                            // Creating Access Point
+    WiFi.softAP(mSSID, mPassword);
     IPAddress myIP = WiFi.softAPIP();
 
-    Serial.print("- ESPWirelessRelay Logs -> AP IP address: ");
+    Serial.print("[ESPWifiRelay]: AP IP address: ");
     Serial.println(myIP);
 
-
-    if (!MDNS.begin(mHostname)) {                                                                   // Configuring DNS Responder
-        Serial.println("- ESPWirelessRelay Logs -> Error setting up DNS responder!");
+    if (!MDNS.begin(mHostname)) {
+        Serial.println("[ESPWifiRelay]: Error setting up DNS responder!");
     } else {
-        Serial.println("- ESPWirelessRelay Logs -> DNS responder started");
+        Serial.println("[ESPWifiRelay]: DNS responder started");
     }
 
-    xTaskCreate(
+    // Create task with larger stack size and lower priority
+    xTaskCreatePinnedToCore(
         webServerTask,
         "webServerTask",
-        5000,
-        this, 
-        28,
-        &mWebServerTask
+        5000,        
+        this,
+        1,           
+        &mWebServerTask,
+        1            
     );
 }
 
-void ESP32WifiRelay::webServerTask(void *param) {
+void ESP32WifiRelay::webServerTask(void* param) {
     ESP32WifiRelay* self = static_cast<ESP32WifiRelay*>(param);
-    static WebServer server(80);
-    int relayPin = self->mRelayPin;                                                              // Capture the relay pin directly
-    Serial.println(self->mRelayPin);
+    
+    self->mServer = new WebServer(80);
 
-    server.on("/", HTTP_GET, []() {                                                             
-        server.send(200, "text/plain", "espRelay1 check: ok");
-    });
+    self->mServer->on("/", HTTP_GET, [self]() { handleRoot(self); });
+    self->mServer->on("/control", HTTP_GET, [self]() { handleControl(self); });
 
-    server.on("/control", HTTP_GET, [relayPin]() {                                               // Capture relayPin directly
-        if (server.hasArg("state")) {
-            String state = server.arg("state");
-            if (state == "high") {
-                digitalWrite(relayPin, HIGH);
-            } else if (state == "low") {
-                digitalWrite(relayPin, LOW);
-            }
-            server.send(200, "text/plain", "OK");
-        } else {
-            server.send(400, "text/plain", "Bad Request: 'state' parameter missing");
-        }
-    });
-
-    server.begin();
+    self->mServer->begin();
+    Serial.println("[ESPWifiRelay]: HTTP server started");
 
     while (true) {
-        server.handleClient();
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        self->mServer->handleClient();
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
